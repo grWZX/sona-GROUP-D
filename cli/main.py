@@ -1,0 +1,142 @@
+"""CLI 主入口：交互式命令行界面。"""
+
+from __future__ import annotations
+
+import sys
+from rich.prompt import Prompt
+from cli.display import print_icon, print_welcome, console
+from cli.interactive import run_session_loop
+from cli.session_ui import show_session_selector
+from cli.tools_ui import show_tools_list
+from cli.models_ui import show_models_list
+from cli.clear_utils import confirm_and_clear
+from cli.hot_ui import run_hot_command
+from cli.wiki_ui import run_wiki_command, run_wiki_approve_command
+
+
+def interactive() -> None:
+    """进入交互式模式（默认命令）"""
+    # 显示图标和欢迎信息
+    print_icon()
+    print_welcome()
+    
+    # 主循环：处理命令
+    while True:
+        try:
+            # 在 user 提示前添加绿色横线作为对话区隔
+            console.print("[green]────────────────────────────────────────────────────────────[/green]")
+            user_input = Prompt.ask("[bold cyan]user[/bold cyan]")
+            
+            if not user_input:
+                continue
+            
+            # 处理系统级命令（以 / 开头）
+            if user_input.strip().startswith("/"):
+                # 处理 /exit 命令
+                if user_input.strip() == "/exit":
+                    console.print(f"\n[cyan]感谢使用 [bold magenta]Sona[/bold magenta]，再见！[/cyan]\n")
+                    break
+                
+                # 处理 /new 命令
+                if user_input.strip() == "/new":
+                    run_session_loop(task_id=None)
+                    continue
+
+                # 处理 /event 命令：强制事件分析工作流（可直接带 query）
+                if user_input.strip().startswith("/event"):
+                    parts = user_input.strip().split(maxsplit=1)
+                    event_query = parts[1].strip() if len(parts) > 1 else None
+                    run_session_loop(
+                        task_id=None,
+                        force_event_workflow=True,
+                        preset_initial_query=event_query,
+                    )
+                    continue
+                
+                # 处理 /memory 命令（选择会话）
+                if user_input.strip() == "/memory":
+                    selected_task_id = show_session_selector(limit=5)
+                    if selected_task_id:
+                        run_session_loop(task_id=selected_task_id)
+                    continue
+                
+                # 处理 /models 命令（显示模型配置）
+                if user_input.strip() == "/models":
+                    show_models_list()
+                    continue
+                
+                # 处理 /tools 命令（显示工具列表）
+                if user_input.strip() == "/tools":
+                    show_tools_list()
+                    continue
+                
+                # 处理 /clear 命令（清除 memory 和 sandbox）
+                if user_input.strip() == "/clear":
+                    confirm_and_clear()
+                    continue
+
+                # 处理 /hot 命令（独立热点抓取与态势感知）
+                if user_input.strip().startswith("/hot"):
+                    parts = user_input.strip().split(maxsplit=1)
+                    custom_config_path = parts[1] if len(parts) > 1 else None
+                    run_hot_command(custom_config_path)
+                    continue
+
+                # 处理 /wiki-approve 命令（候选回流）
+                if user_input.strip().startswith("/wiki-approve"):
+                    parts = user_input.strip().split(maxsplit=1)
+                    selector = parts[1].strip() if len(parts) > 1 else None
+                    run_wiki_approve_command(selector)
+                    continue
+
+                # 处理 /wiki 命令（知识问答）
+                if user_input.strip().startswith("/wiki"):
+                    parts = user_input.strip().split(maxsplit=1)
+                    wiki_query = parts[1].strip() if len(parts) > 1 else None
+                    run_wiki_command(wiki_query)
+                    continue
+                
+                # 处理其他未知命令
+                console.print(f"[yellow]未知命令: {user_input}[/yellow]")
+                console.print("[cyan]可用命令:[/cyan]")
+                console.print("  [cyan]/new[/cyan]     - 开启新的分析会话")
+                console.print("  [cyan]/event[/cyan]   - 强制进入事件分析工作流（可带 query）")
+                console.print("  [dim]                 示例: /event 315晚会舆情分析[/dim]")
+                console.print("  [cyan]/memory[/cyan]  - 查看并恢复之前的会话")
+                console.print("  [cyan]/models[/cyan]  - 查看所有模型配置")
+                console.print("  [cyan]/tools[/cyan]   - 查看所有可用工具")
+                console.print("  [cyan]/hot[/cyan]     - 运行热点抓取与态势感知流程")
+                console.print("  [dim]                 示例: /hot 或 /hot config/config.yaml[/dim]")
+                console.print("  [cyan]/wiki[/cyan]    - 知识库问答（answer + sources）")
+                console.print("  [dim]                 示例: /wiki 什么是舆情反转？[/dim]")
+                console.print("  [cyan]/wiki-approve[/cyan] - 审核并回流高价值候选到 output")
+                console.print("  [dim]                 示例: /wiki-approve 或 /wiki-approve 罗永浩[/dim]")
+                console.print("  [cyan]/clear[/cyan]   - 清除 memory 和 sandbox")
+                console.print("  [cyan]/exit[/cyan]    - 退出程序")
+                continue
+            
+            # 默认行为：只提示，不创建会话
+            console.print(
+                "[yellow]提示: 使用 '/new' 开启新会话，'/memory' 恢复会话，"
+                "'/event' 事件分析，'/wiki' 知识问答，'/hot' 热点态势。[/yellow]"
+            )
+            
+        except KeyboardInterrupt:
+            console.print(f"\n\n[cyan]感谢使用 [bold magenta]Sona[/bold magenta]，再见！[/cyan]\n")
+            sys.exit(0)
+        except EOFError:
+            console.print(f"\n\n[cyan]感谢使用 [bold magenta]Sona[/bold magenta]，再见！[/cyan]\n")
+            sys.exit(0)
+        except Exception as e:
+            console.print(f"\n[red]❌[/red] [red]发生错误:[/red] [white]{str(e)}[/white]\n")
+            import traceback
+            traceback.print_exc()
+
+
+def main() -> None:
+    """主函数：启动交互式模式。"""
+    interactive()
+
+
+if __name__ == "__main__":
+    main()
