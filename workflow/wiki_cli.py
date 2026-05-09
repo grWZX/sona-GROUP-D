@@ -23,6 +23,8 @@ from datetime import datetime
 from hashlib import sha1
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+import frontmatter
+import yaml
 
 from utils.path import get_opinion_analysis_kb_root
 from utils.harness_memory import (
@@ -49,7 +51,30 @@ class WikiSource:
             "snippet": snip,
             "score": round(float(self.score), 4),
         }
+@dataclass(slots=True)
+class WikiCase:
+    title: str
+    domain: str
+    actors: List[str]
+    timeline: str
+    risk_patterns: List[str]
+    response_tactics: List[str]
+    evidence: str
+    report_path: str
+    content: str
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "title": self.title,
+            "domain": self.domain,
+            "actors": self.actors,
+            "timeline": self.timeline,
+            "risk_patterns": self.risk_patterns,
+            "response_tactics": self.response_tactics,
+            "evidence": self.evidence,
+            "report_path": self.report_path,
+            "content": self.content[:300],
+        }
 
 def _llm_excerpt_max_chars() -> int:
     raw = os.environ.get("SONA_WIKI_LLM_EXCERPT_CHARS", "12000").strip()
@@ -931,7 +956,164 @@ def _legacy_candidate_files(project_root: Path) -> List[Path]:
         if p.is_dir():
             candidates.extend(sorted(p.glob("*.md")))
     return [p for p in candidates if p.exists() and p.is_file()]
+def _load_case_library(project_root: Path) -> List[WikiCase]:
 
+    cases_dir = (
+        get_opinion_analysis_kb_root(project_root)
+        / "references"
+        / "wiki"
+        / "cases"
+    )
+
+    if not cases_dir.is_dir():
+        return []
+
+    results: List[WikiCase] = []
+
+    for fp in cases_dir.glob("*.md"):
+
+        try:
+            post = frontmatter.load(fp)
+
+            meta = post.metadata or {}
+
+            case = WikiCase(
+                title=str(meta.get("title", fp.stem)),
+                domain=str(meta.get("domain", "")),
+                actors=meta.get("actors", []) or [],
+                timeline=str(meta.get("timeline", "")),
+                risk_patterns=meta.get("risk_patterns", []) or [],
+                response_tactics=meta.get("response_tactics", []) or [],
+                evidence=str(meta.get("evidence", "")),
+                report_path=str(meta.get("report_path", "")),
+                content=post.content,
+            )
+
+            results.append(case)
+
+        except Exception:
+            continue
+
+    return results
+
+
+def search_cases(
+    query: str = "",
+    *,
+    domain: str = "",
+    actors: str = "",
+    risk_patterns: str = "",
+    project_root: Path | None = None,
+) -> List[Dict[str, Any]]:
+
+    root = (project_root or Path(__file__).resolve().parents[1]).resolve()
+
+    cases = _load_case_library(root)
+
+    q = str(query or "").lower()
+
+    # 自然语言简单解析
+    if not domain:
+
+        if "高铁" in q:
+            domain = "高铁"
+
+        elif "控烟" in q:
+            domain = "控烟"
+
+    if not risk_patterns:
+
+        if "服务争议" in q:
+            risk_patterns = "服务争议"
+
+        elif "投诉" in q:
+            risk_patterns = "投诉"
+
+    results = []
+
+    for case in cases:
+
+        score = 0
+
+        if domain and domain in case.domain:
+            score += 3
+
+        if actors:
+            if any(actors in str(a) for a in case.actors):
+                score += 2
+
+        if risk_patterns:
+            if any(risk_patterns in str(r) for r in case.risk_patterns):
+                score += 3
+
+        full_text = (
+            case.title
+            + case.content
+            + " ".join(case.risk_patterns)
+            + " ".join(case.actors)
+        ).lower()
+
+        query_tokens = _tokenize(q)
+
+        for tok in query_tokens:
+
+            if tok in full_text:
+                score += 1
+
+        if score <= 0:
+            continue
+
+        results.append(
+            {
+                "title": case.title,
+                "domain": case.domain,
+                "actors": case.actors,
+                "risk_patterns": case.risk_patterns,
+                "timeline": case.timeline,
+                "similarity_reason": f"命中领域={domain} 风险={risk_patterns}",
+                "score": score,
+                "report_path": case.report_path,
+            }
+        )
+
+    results.sort(key=lambda x: x["score"], reverse=True)
+
+    return results[:10]
+
+
+def answer_case_query(
+    query: str,
+    *,
+    project_root: Path | None = None,
+) -> Dict[str, Any]:
+
+    matches = search_cases(
+        query=query,
+        project_root=project_root,
+    )
+
+    if not matches:
+
+        return {
+            "answer": "未找到匹配案例",
+            "cases": [],
+        }
+
+    lines = []
+
+    for idx, item in enumerate(matches[:5], 1):
+
+        lines.append(
+            f"{idx}. {item['title']}\n"
+            f"领域：{item['domain']}\n"
+            f"风险：{','.join(item['risk_patterns'])}\n"
+            f"相似原因：{item['similarity_reason']}"
+        )
+
+    return {
+        "answer": "\n\n".join(lines),
+        "cases": matches,
+    }
 
 def retrieve_wiki_sources(query: str, *, topk: int = 6, project_root: Path | None = None) -> List[WikiSource]:
     root = project_root or Path(__file__).resolve().parents[1]
@@ -1410,4 +1592,24 @@ def answer_wiki_query(
         "sources": source_dicts,
         "_wiki_meta": meta,
     }
+def search_cases(query: str = "", project_root: Path | None = None):
+    """
+    Task16兼容接口：基于wiki检索复用case结构
+    """
 
+    sources = retrieve_wiki_sources(query, topk=8, project_root=project_root)
+
+    if not sources:
+        return []
+
+    return [
+        {
+            "title": s.title,
+            "domain": "wiki",
+            "actors": [],
+            "risk_patterns": [],
+            "score": s.score,
+            "snippet": s.snippet,
+        }
+        for s in sources
+    ]
