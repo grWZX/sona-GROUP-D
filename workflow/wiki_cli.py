@@ -748,9 +748,13 @@ def _is_entity_stub_source(src: WikiSource) -> bool:
 
 
 def _wiki_path_is_report_like(path: str) -> bool:
-    """是否为 ``sources/`` 或 ``wiki/output/`` 下的正文型词条（非 entities/concepts 导航页）。"""
+    """是否为 ``sources/``、``wiki/output/`` 或 ``cases/`` 下的正文型词条（非 entities/concepts 导航页）。"""
     p = str(path or "").replace("\\", "/")
-    return "/references/wiki/sources/" in p or "/references/wiki/output/" in p
+    return (
+        "/references/wiki/sources/" in p
+        or "/references/wiki/output/" in p
+        or "/references/wiki/cases/" in p
+    )
 
 
 def _filter_entities_when_report_docs_present(ranked: List[WikiSource]) -> List[WikiSource]:
@@ -883,6 +887,70 @@ def _parse_index_candidates(
     return dedup
 
 
+def _wiki_cases_dir_line_for_scoring(file_path: Path) -> str:
+    """读取 ``cases/*.md`` 的标题与正文开头，用于与 index 条目相同的打分逻辑。"""
+    try:
+        raw = file_path.read_text(encoding="utf-8", errors="replace")[:12_000]
+    except Exception:
+        return file_path.stem
+    title = file_path.stem
+    if raw.lstrip().startswith("---"):
+        tail = raw.find("\n---", 3)
+        if tail > 3:
+            fm = raw[3:tail]
+            m = re.search(r"(?m)^title:\s*(.+)\s*$", fm)
+            if m:
+                title = str(m.group(1) or "").strip().strip("\"'") or title
+    body = _strip_yaml_frontmatter(raw)[:400].replace("\n", " ")
+    return f"{title} {body}".strip()
+
+
+def _wiki_cases_dir_candidates(
+    wiki_root: Path,
+    *,
+    raw_query: str,
+    query_tokens: List[str],
+    normalized_query: str,
+    max_pages: int = 24,
+) -> List[Tuple[Path, float, str]]:
+    """
+    事件分析自动入库的标准案例（``cases/*.md``）。
+
+    与 ``index.md`` 并列注入检索候选，避免依赖手工维护索引也能被召回。
+    """
+    cdir = wiki_root / "cases"
+    if not cdir.is_dir():
+        return []
+    files = [p for p in cdir.glob("*.md") if p.is_file()]
+    if not files:
+        return []
+    files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    ngrams = _cn_ngrams(normalized_query or raw_query)
+    ranked: List[Tuple[Path, float, str]] = []
+    rel_base = "cases"
+    for fp in files[: max(1, min(int(max_pages), 80))]:
+        line_for_score = _wiki_cases_dir_line_for_scoring(fp)
+        ls = _score_index_line(query_tokens, line_for_score, ngrams=ngrams)
+        if ls <= 0:
+            continue
+        rel = f"{rel_base}/{fp.name}"
+        preview = line_for_score.replace("\n", " ")[:200]
+        idx_line = f"- [{rel}]({rel}) - {preview}"
+        ranked.append((fp.resolve(), float(ls), idx_line))
+    ranked.sort(key=lambda x: x[1], reverse=True)
+    out: List[Tuple[Path, float, str]] = []
+    seen: set[str] = set()
+    for p, s, ln in ranked:
+        key = str(p)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append((p, s, ln))
+        if len(out) >= max_pages:
+            break
+    return out
+
+
 def _sources_from_markdown_file(
     file_path: Path,
     *,
@@ -978,6 +1046,24 @@ def retrieve_wiki_sources(query: str, *, topk: int = 6, project_root: Path | Non
             normalized_query=normalized_query,
             max_pages=28,
         )
+        case_cands = _wiki_cases_dir_candidates(
+            wiki_root,
+            raw_query=str(query or ""),
+            query_tokens=query_tokens,
+            normalized_query=normalized_query,
+            max_pages=24,
+        )
+        seen_cand_paths: set[str] = set()
+        merged: List[Tuple[Path, float, str]] = []
+        for p, s, ln in case_cands + candidates:
+            k = str(p)
+            if k in seen_cand_paths:
+                continue
+            seen_cand_paths.add(k)
+            merged.append((p, s, ln))
+            if len(merged) >= 44:
+                break
+        candidates = merged
         index_used = True
         index_hits = len(candidates)
         for page_path, line_score, _line in candidates:

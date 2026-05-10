@@ -12,7 +12,7 @@ try:
 except ImportError:  # 未安装时仍可正常使用 qwen/deepseek 等 OpenAI 兼容端点
     ChatGoogleGenerativeAI = None  # type: ignore[misc, assignment]
 
-from utils.env_loader import get_env_config
+from utils.env_loader import reload_env_config
 from utils.path import get_config_path
 
 # 按 provider 使用的默认环境变量名
@@ -88,6 +88,17 @@ def _resolve_provider_model_api_key(
         error_msg = f"缺少 {api_key_env}，请在 .env 中配置"
         if available_keys:
             error_msg += f"\n提示：检测到已配置的环境变量: {', '.join(available_keys)}"
+        try:
+            env_path = get_config_path("model.yaml").parent.parent / ".env"
+            if env_path.is_file():
+                sz = int(env_path.stat().st_size)
+                if sz == 0:
+                    error_msg += (
+                        f"\n提示：项目根下的 `.env` 文件大小为 0 字节（空文件）。"
+                        f"若在编辑器里能看到内容，请先 **保存到磁盘**；或复制 `.env.example` 为 `.env` 后填写 `{api_key_env}`。"
+                    )
+        except Exception:
+            pass
         raise ValueError(error_msg)
 
     return provider_val, model_val, api_key
@@ -167,8 +178,15 @@ def _create_qwen(model: str, api_key: str, **kwargs: Any) -> Any:
 
     默认 base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
     可在 config/model.yaml 的 profile 中用 base_url 覆盖。
+
+    地域：Key 与接入地域不一致时，DashScope 常直接返回 401。可用环境变量
+    ``SONA_DASHSCOPE_BASE_URL`` 覆盖为与控制台一致的兼容模式地址，例如国际：
+    ``https://dashscope-intl.aliyuncs.com/compatible-mode/v1``。
     """
     base_url = str(kwargs.pop("base_url", "") or "https://dashscope.aliyuncs.com/compatible-mode/v1").strip()
+    env_url = str(os.environ.get("SONA_DASHSCOPE_BASE_URL", "") or "").strip()
+    if env_url:
+        base_url = env_url
     return _create_openai_compatible(model=model, api_key=api_key, base_url=base_url, **kwargs)
 
 # 创建deepseek模型接口
@@ -245,7 +263,7 @@ class ModelFactory:
     ):
         profile = profile or "main"
         config = _get_profile_config(profile)
-        env = get_env_config()
+        env = reload_env_config()
         provider_val, model_val, api_key = _resolve_provider_model_api_key(
             config, env, provider, model
         )

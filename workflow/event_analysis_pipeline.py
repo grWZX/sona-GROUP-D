@@ -4546,6 +4546,38 @@ def run_event_analysis_pipeline(
     if not html_file_path and file_url:
         html_file_path = file_url
 
+    # ============ 11.1) 案例库：从 sandbox 产物写入 Wiki cases（任务 15） ============
+    try:
+        from workflow.case_library_generator import write_event_analysis_case_wiki
+
+        case_meta = write_event_analysis_case_wiki(
+            project_root=_ROOT,
+            task_id=task_id,
+            process_dir=process_dir,
+            search_plan=search_plan,
+            user_query=user_query,
+            html_report_path=html_file_path,
+            timeline_json=timeline_json if isinstance(timeline_json, dict) else None,
+            sentiment_json=sentiment_json if isinstance(sentiment_json, dict) else None,
+        )
+        _append_ndjson_log(
+            run_id="event_analysis_case_kb",
+            hypothesis_id="H45_case_library_autogen",
+            location="workflow/event_analysis_pipeline.py:case_library",
+            message="已写入 Wiki 标准案例（cases/）并登记索引",
+            data=case_meta,
+        )
+    except Exception as e:
+        _append_ndjson_log(
+            run_id="event_analysis_case_kb",
+            hypothesis_id="H45_case_library_autogen",
+            location="workflow/event_analysis_pipeline.py:case_library_exception",
+            message="案例库自动生成失败（不影响报告主流程）",
+            data={"error": str(e)},
+        )
+        if debug:
+            console.print(f"[yellow]⚠️ 案例库写入跳过: {e}[/yellow]")
+
     if sys.stdout.isatty():
         try:
             open_url = ""

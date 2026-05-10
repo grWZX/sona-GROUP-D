@@ -14,33 +14,35 @@
 # kimi:KIMI_APIKEY
 
 # Base URL 配置（可选，用于自定义端点）
-# qwen 默认: https://dashscope.aliyuncs.com/compatible-mode/v1
-# coding plan: https://coding.dashscope.aliyuncs.com/v1
+# 免费额度 / 控制台「API-KEY」：请用兼容 OpenAI 模式公网地址（下行为默认）
+# qwen 兼容模式: https://dashscope.aliyuncs.com/compatible-mode/v1
+# 百炼 Coding 专线（需对应产品 Key，普通 DashScope 免费 Key 易 401）: https://coding.dashscope.aliyuncs.com/v1
 
 # 主流程模型：作为 ReAct Agent 的底座
+# 免费额度若不含 qwen3.5-plus，可改为控制台列出的型号（如 qwen-turbo、qwen-plus）
 main:
   provider: qwen
   model: qwen3.5-plus
   api_key_env: QWEN_APIKEY
-  base_url: https://coding.dashscope.aliyuncs.com/v1
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
 
 # 工具模型：用于各种工具调用（搜索词提取、时间线分析、情感分析等）
 tools:
   provider: qwen
   model: qwen3.5-plus
   api_key_env: QWEN_APIKEY
-  base_url: https://coding.dashscope.aliyuncs.com/v1
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
 
 # HTML报告生成模型：生成舆情分析HTML报告
 report:
   provider: qwen
   model: qwen3.5-plus
   api_key_env: QWEN_APIKEY
-  base_url: https://coding.dashscope.aliyuncs.com/v1
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
 
 # 情感分析打分模型：analysis_sentiment 默认优先读取该 profile；缺省时自动回退到 tools
 sentiment:
   provider: qwen
   model: qwen3.5-plus
   api_key_env: QWEN_APIKEY
-  base_url: https://coding.dashscope.aliyuncs.com/v1
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
