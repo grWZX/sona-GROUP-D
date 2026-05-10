@@ -37,6 +37,7 @@ from cli.event_analysis_workflow import run_event_analysis_workflow
 from cli.router import route_query, get_router
 from cli.hot_ui import run_hot_command
 from cli.wiki_ui import run_wiki_command, run_wiki_approve_command
+from cli.case_ui import run_case_command
 from tools.extract_search_terms import extract_search_terms
 from rich.prompt import Confirm
 
@@ -1266,6 +1267,18 @@ def run_session_loop(
                         traceback.print_exc()
                     continue
 
+                # 处理 /case 命令（案例库专用检索）
+                if user_input.strip().startswith("/case"):
+                    parts = user_input.strip().split(maxsplit=1)
+                    case_query = parts[1].strip() if len(parts) > 1 else None
+                    try:
+                        run_case_command(case_query)
+                        session_manager.add_message(task_id, "assistant", "已执行 /case 案例库检索。")
+                    except Exception as e:
+                        console.print(f"[red]/case 执行失败: {str(e)}[/red]")
+                        traceback.print_exc()
+                    continue
+
                 # 处理 /compress 命令（手动压缩上下文）
                 if user_input.strip() == "/compress":
                     session_data = session_manager.load_session(task_id)
@@ -1353,7 +1366,7 @@ def run_session_loop(
                 # 其他系统命令在main.py中处理，这里仅支持会话内命令
                 console.print(
                     "[yellow]会话内可用命令: "
-                    "/exit, /set, /event, /hot, /wiki, /wiki-approve, /compress[/yellow]"
+                    "/exit, /set, /event, /hot, /wiki, /case, /wiki-approve, /compress[/yellow]"
                 )
                 continue
 

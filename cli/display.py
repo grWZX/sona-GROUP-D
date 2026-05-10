@@ -83,6 +83,8 @@ def print_welcome() -> None:
     console.print("  [cyan]/hot[/cyan]     - 热点抓取与态势感知（独立流程，生成 HTML）")
     console.print("  [cyan]/wiki[/cyan]    - 知识库问答（answer + sources）")
     console.print("  [dim]                 示例: /wiki 什么是舆情反转？[/dim]")
+    console.print("  [cyan]/case[/cyan]    - 案例库检索（结构化列表 + 相似对照）")
+    console.print("  [dim]                 示例: /case 找几个高铁服务争议案例[/dim]")
     console.print("  [cyan]/models[/cyan]  - 查看所有模型配置")
     console.print("  [cyan]/tools[/cyan]   - 查看所有可用工具")
     console.print("  [cyan]/clear[/cyan]   - 清除 memory 和 sandbox")

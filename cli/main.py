@@ -12,6 +12,7 @@ from cli.models_ui import show_models_list
 from cli.clear_utils import confirm_and_clear
 from cli.hot_ui import run_hot_command
 from cli.wiki_ui import run_wiki_command, run_wiki_approve_command
+from cli.case_ui import run_case_command
 
 
 def interactive() -> None:
@@ -95,6 +96,13 @@ def interactive() -> None:
                     wiki_query = parts[1].strip() if len(parts) > 1 else None
                     run_wiki_command(wiki_query)
                     continue
+
+                # 处理 /case 命令（案例库专用检索）
+                if user_input.strip().startswith("/case"):
+                    parts = user_input.strip().split(maxsplit=1)
+                    case_query = parts[1].strip() if len(parts) > 1 else None
+                    run_case_command(case_query)
+                    continue
                 
                 # 处理其他未知命令
                 console.print(f"[yellow]未知命令: {user_input}[/yellow]")
@@ -109,6 +117,8 @@ def interactive() -> None:
                 console.print("  [dim]                 示例: /hot 或 /hot config/config.yaml[/dim]")
                 console.print("  [cyan]/wiki[/cyan]    - 知识库问答（answer + sources）")
                 console.print("  [dim]                 示例: /wiki 什么是舆情反转？[/dim]")
+                console.print("  [cyan]/case[/cyan]    - 案例库检索（结构化列表 + 相似对照）")
+                console.print("  [dim]                 示例: /case 找几个高铁服务争议案例[/dim]")
                 console.print("  [cyan]/wiki-approve[/cyan] - 审核并回流高价值候选到 output")
                 console.print("  [dim]                 示例: /wiki-approve 或 /wiki-approve 罗永浩[/dim]")
                 console.print("  [cyan]/clear[/cyan]   - 清除 memory 和 sandbox")
@@ -118,7 +128,7 @@ def interactive() -> None:
             # 默认行为：只提示，不创建会话
             console.print(
                 "[yellow]提示: 使用 '/new' 开启新会话，'/memory' 恢复会话，"
-                "'/event' 事件分析，'/wiki' 知识问答，'/hot' 热点态势。[/yellow]"
+                "'/event' 事件分析，'/wiki' 知识问答，'/case' 案例库，'/hot' 热点态势。[/yellow]"
             )
             
         except KeyboardInterrupt:

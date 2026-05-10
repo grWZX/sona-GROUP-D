@@ -1,6 +1,7 @@
 # .env 与模型配置
 python-dotenv>=1.0.0
 PyYAML>=6.0
+python-frontmatter>=1.0.0
 requests>=2.28.0
 pytz>=2024.1
 
