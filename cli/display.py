@@ -81,6 +81,8 @@ def print_welcome() -> None:
     console.print("  [dim]                 示例: /event 315晚会舆情分析[/dim]")
     console.print("  [cyan]/memory[/cyan]  - 查看并恢复之前的会话")
     console.print("  [cyan]/hot[/cyan]     - 热点抓取与态势感知（独立流程，生成 HTML）")
+    console.print("  [cyan]/monitor[/cyan] - 专题监测（创建专题/生成日报周报/示例监测）")
+    console.print("  [dim]                 示例: /monitor demo 或 /monitor create 高铁舆情|交通|高铁,服务[/dim]")
     console.print("  [cyan]/wiki[/cyan]    - 知识库问答（answer + sources）")
     console.print("  [dim]                 示例: /wiki 什么是舆情反转？[/dim]")
     console.print("  [cyan]/case[/cyan]    - 案例库检索（结构化列表 + 相似对照）")

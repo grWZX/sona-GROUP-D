@@ -2,39 +2,45 @@
 Supabase 话题监控工具
 Task 17+18: 提供话题创建、监控、告警等工具
 """
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from workflow.supabase_client import SupabaseDB, get_db
-from workflow.topic_monitoring_pipeline import TopicMonitoringPipeline, create_demo_topic
+from workflow.topic_monitoring_pipeline import TopicMonitoringPipeline, create_demo_topic, run_high_speed_rail_demo as _run_high_speed_rail_demo
 
 
 def supabase_init(
-    url: str,
-    key: str,
+    url: str = "",
+    key: str = "",
+    database_url: str = "",
     schema_sql: str = ""
 ) -> Dict[str, Any]:
     """
-    初始化 Supabase 连接并创建表结构
+    初始化 Supabase/Postgres 连接并创建表结构
     
     Args:
         url: Supabase 项目 URL
         key: Supabase anon public key
+        database_url: 原生 Postgres 连接字符串
         schema_sql: 可选的建表 SQL（如果数据库已有表可留空）
     
     Returns:
         初始化结果
     """
     import os
-    os.environ["SUPABASE_URL"] = url
-    os.environ["SUPABASE_KEY"] = key
+    if database_url:
+        os.environ["DATABASE_URL"] = database_url
+    else:
+        os.environ["SUPABASE_URL"] = url
+        os.environ["SUPABASE_KEY"] = key
     
     # 如果提供了 schema_sql，可以在这里执行
     if schema_sql:
-        # 实际需要在 Supabase dashboard 的 SQL editor 中执行
+        # 仅提供配置提示，实际迁移可通过 psql 或数据库管理工具执行
         pass
     
     return {
         "status": "ok",
-        "message": "Supabase 连接已配置，请前往 SQL Editor 执行 supabase_schema.sql"
+        "message": "数据库连接已配置，请确保数据库可达并执行 supabase_schema.sql 初始化表结构。"
     }
 
 
@@ -166,6 +172,31 @@ def create_snapshot(topic_id: str) -> Dict[str, Any]:
     return snapshot
 
 
+
+def generate_report(topic_id: str, period: str = "daily", output_dir: str = "") -> Dict[str, Any]:
+    """
+    生成专题日报/周报
+    
+    Args:
+        topic_id: 话题 ID
+        period: daily/weekly
+        output_dir: 输出目录，可选
+    
+    Returns:
+        报告元信息
+    """
+    pipeline = TopicMonitoringPipeline()
+    output_path = Path(output_dir) if output_dir else None
+    return pipeline.generate_periodic_report(topic_id, period=period, output_dir=output_path)
+
+
+def run_high_speed_rail_demo(cycles: int = 2, interval_minutes: int = 1) -> Dict[str, Any]:
+    """
+    运行高铁舆情专题连续监测示例
+    """
+    return _run_high_speed_rail_demo(cycles=cycles, interval_minutes=interval_minutes)
+
+
 __all__ = [
     "supabase_init",
     "create_topic",
@@ -175,4 +206,6 @@ __all__ = [
     "resolve_alert",
     "collect_posts",
     "create_snapshot",
+    "generate_report",
+    "run_high_speed_rail_demo",
 ]

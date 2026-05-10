@@ -13,6 +13,7 @@ from cli.clear_utils import confirm_and_clear
 from cli.hot_ui import run_hot_command
 from cli.wiki_ui import run_wiki_command, run_wiki_approve_command
 from cli.case_ui import run_case_command
+from cli.monitor_ui import run_monitor_command
 
 
 def interactive() -> None:
@@ -103,6 +104,13 @@ def interactive() -> None:
                     case_query = parts[1].strip() if len(parts) > 1 else None
                     run_case_command(case_query)
                     continue
+
+                # 处理 /monitor 命令（专题监测任务 17/18）
+                if user_input.strip().startswith("/monitor"):
+                    parts = user_input.strip().split(maxsplit=1)
+                    monitor_command = parts[1].strip() if len(parts) > 1 else None
+                    run_monitor_command(monitor_command)
+                    continue
                 
                 # 处理其他未知命令
                 console.print(f"[yellow]未知命令: {user_input}[/yellow]")
@@ -115,6 +123,8 @@ def interactive() -> None:
                 console.print("  [cyan]/tools[/cyan]   - 查看所有可用工具")
                 console.print("  [cyan]/hot[/cyan]     - 运行热点抓取与态势感知流程")
                 console.print("  [dim]                 示例: /hot 或 /hot config/config.yaml[/dim]")
+                console.print("  [cyan]/monitor[/cyan] - 专题监测（创建专题/生成日报周报/示例监测）")
+                console.print("  [dim]                 示例: /monitor demo 或 /monitor create 高铁舆情|交通|高铁,服务[/dim]")
                 console.print("  [cyan]/wiki[/cyan]    - 知识库问答（answer + sources）")
                 console.print("  [dim]                 示例: /wiki 什么是舆情反转？[/dim]")
                 console.print("  [cyan]/case[/cyan]    - 案例库检索（结构化列表 + 相似对照）")

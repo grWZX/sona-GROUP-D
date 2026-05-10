@@ -25,6 +25,9 @@ jieba>=0.42.1
 # 浏览器自动化（用于 NetInsight 登录）
 playwright>=1.40.0
 
+# Postgres 连接支持
+psycopg2-binary>=2.9.0
+
 # CLI 颜色支持
 colorama>=0.4.6
 
